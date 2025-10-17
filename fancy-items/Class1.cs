@@ -60,20 +60,37 @@ namespace FancyItems
             GameObject bgObject = new GameObject("FancyItems_Background");
             background = bgObject.AddComponent<Image>();
 
-            // 设置为当前ItemDisplay的子对象
-            bgObject.transform.SetParent(transform, false);
-            bgObject.transform.SetAsFirstSibling();
+            // 添加LayoutElement并设置ignoreLayout，防止LayoutGroup干扰
+            LayoutElement layoutElement = bgObject.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
 
-            // 配置RectTransform - 填充整个容器
+            // 设置为当前ItemDisplay的子对象（使用false保留本地坐标）
+            bgObject.transform.SetParent(transform, false);
+
+            // 获取RectTransform并完全重置
             RectTransform rect = bgObject.GetComponent<RectTransform>();
+
+            // 重置所有transform属性
+            rect.localPosition = Vector3.zero;
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
+
+            // 设置锚点和pivot到左下角
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            rect.localScale = Vector3.one;
-            rect.localPosition = Vector3.zero;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+
+            // 清空所有offset
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = Vector2.zero;
+
+            // 将背景移到最底层（最先渲染）
+            bgObject.transform.SetAsFirstSibling();
 
             background.color = Color.clear;
+
+            // 禁用raycast，避免阻挡点击事件
+            background.raycastTarget = false;
         }
 
         private void LateUpdate()
@@ -121,11 +138,7 @@ namespace FancyItems
                 UpdateBackgroundColor(quality);
             }
 
-            // 确保背景层级正确
-            if (background.transform.GetSiblingIndex() != 0)
-            {
-                background.transform.SetAsFirstSibling();
-            }
+            // 移除了SetAsFirstSibling调用，避免在LayoutGroup环境下产生位置偏移
         }
 
         private void UpdateBackgroundColor(int quality)
