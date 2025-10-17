@@ -1,0 +1,255 @@
+using Duckov.Modding;
+using Duckov.UI;
+using ItemStatsSystem;
+using System.Collections;
+using UnityEngine;
+using UnityEngine.UI;
+
+namespace FancyItems
+{
+    // Helper组件：实时监控ItemDisplay变化并更新背景
+    public class ItemDisplayQualityHelper : MonoBehaviour
+    {
+        private ItemDisplay itemDisplay;
+        private Image background;
+        private Item lastItem;
+        private int lastQuality = -1;
+        private bool initialized = false;
+
+        private static readonly Color[] QualityColors = new Color[]
+        {
+            new Color(0f, 0f, 0f, 0f),           // Quality 0: 透明
+            new Color(0f, 0f, 0f, 0f),           // Quality 1: 透明（普通物品不显示）
+            new Color(0.2f, 0.8f, 0.2f, 0.25f),  // Quality 2: 绿色
+            new Color(0.2f, 0.4f, 1f, 0.3f),     // Quality 3: 蓝色
+            new Color(0.7f, 0.2f, 1f, 0.35f),    // Quality 4: 紫色
+            new Color(1f, 0.5f, 0f, 0.4f),       // Quality 5: 橙色
+            new Color(1f, 0.15f, 0.15f, 0.45f),  // Quality 6+: 红色
+        };
+
+        private void OnEnable()
+        {
+            // 延迟初始化，确保ItemDisplay组件已准备好
+            if (!initialized)
+            {
+                StartCoroutine(DelayedInitialize());
+            }
+        }
+
+        private IEnumerator DelayedInitialize()
+        {
+            // 等待一帧，确保ItemDisplay完全初始化
+            yield return null;
+
+            if (!initialized)
+            {
+                itemDisplay = GetComponent<ItemDisplay>();
+                if (itemDisplay != null)
+                {
+                    CreateBackground();
+                    initialized = true;
+                }
+            }
+        }
+
+        private void CreateBackground()
+        {
+            if (background != null) return;
+
+            // 创建背景GameObject
+            GameObject bgObject = new GameObject("FancyItems_Background");
+            background = bgObject.AddComponent<Image>();
+
+            // 设置为当前ItemDisplay的子对象
+            bgObject.transform.SetParent(transform, false);
+            bgObject.transform.SetAsFirstSibling();
+
+            // 配置RectTransform - 填充整个容器
+            RectTransform rect = bgObject.GetComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.localScale = Vector3.one;
+            rect.localPosition = Vector3.zero;
+
+            background.color = Color.clear;
+        }
+
+        private void LateUpdate()
+        {
+            if (!initialized || itemDisplay == null || background == null)
+            {
+                return;
+            }
+
+            // 获取当前物品
+            Item currentItem = itemDisplay.Target;
+
+            // 物品变化检测
+            if (currentItem != lastItem)
+            {
+                lastItem = currentItem;
+                lastQuality = -1;
+            }
+
+            if (currentItem == null)
+            {
+                if (background.gameObject.activeSelf)
+                {
+                    background.gameObject.SetActive(false);
+                }
+                return;
+            }
+
+            // 检查物品是否已被检查（搜索完成）
+            if (!currentItem.Inspected)
+            {
+                // 未检查的物品不显示品质背景
+                if (background.gameObject.activeSelf)
+                {
+                    background.gameObject.SetActive(false);
+                }
+                return;
+            }
+
+            // 品质更新
+            int quality = currentItem.Quality;
+            if (quality != lastQuality)
+            {
+                lastQuality = quality;
+                UpdateBackgroundColor(quality);
+            }
+
+            // 确保背景层级正确
+            if (background.transform.GetSiblingIndex() != 0)
+            {
+                background.transform.SetAsFirstSibling();
+            }
+        }
+
+        private void UpdateBackgroundColor(int quality)
+        {
+            if (background == null) return;
+
+            if (quality <= 1)
+            {
+                background.gameObject.SetActive(false);
+                return;
+            }
+
+            background.gameObject.SetActive(true);
+            int colorIndex = Mathf.Min(quality, QualityColors.Length - 1);
+            background.color = QualityColors[colorIndex];
+        }
+
+        private void OnDestroy()
+        {
+            if (background != null)
+            {
+                Destroy(background.gameObject);
+            }
+        }
+    }
+
+    // 主Mod类：自动为所有ItemDisplay添加Helper
+    public class ModBehaviour : Duckov.Modding.ModBehaviour
+    {
+        private void OnEnable()
+        {
+            Debug.Log("[FancyItems] Mod已启用 - 实时监控模式");
+
+            // 立即处理现有的ItemDisplay
+            StartCoroutine(ProcessExistingDisplays());
+
+            // 启动高频监控协程（每0.2秒检查一次新增）
+            StartCoroutine(MonitorNewDisplaysCoroutine());
+        }
+
+        private void OnDisable()
+        {
+            Debug.Log("[FancyItems] Mod已禁用");
+            StopAllCoroutines();
+            CleanupAllHelpers();
+        }
+
+        private void OnDestroy()
+        {
+            CleanupAllHelpers();
+        }
+
+        // 处理现有的ItemDisplay
+        private IEnumerator ProcessExistingDisplays()
+        {
+            yield return new WaitForSeconds(0.1f);
+
+            ItemDisplay[] displays = FindObjectsOfType<ItemDisplay>();
+            Debug.Log($"[FancyItems] 找到 {displays.Length} 个现有ItemDisplay");
+
+            int processed = 0;
+            foreach (ItemDisplay display in displays)
+            {
+                if (display != null && display.GetComponent<ItemDisplayQualityHelper>() == null)
+                {
+                    display.gameObject.AddComponent<ItemDisplayQualityHelper>();
+                    processed++;
+
+                    // 每处理5个等一帧
+                    if (processed % 5 == 0)
+                    {
+                        yield return null;
+                    }
+                }
+            }
+
+            Debug.Log($"[FancyItems] 已为 {processed} 个ItemDisplay添加Helper");
+        }
+
+        // 高频监控新增的ItemDisplay
+        private IEnumerator MonitorNewDisplaysCoroutine()
+        {
+            while (true)
+            {
+                yield return new WaitForSeconds(0.2f); // 每0.2秒检查一次
+
+                ItemDisplay[] displays = FindObjectsOfType<ItemDisplay>();
+                int addedCount = 0;
+
+                foreach (ItemDisplay display in displays)
+                {
+                    if (display != null &&
+                        display.gameObject.activeInHierarchy &&
+                        display.GetComponent<ItemDisplayQualityHelper>() == null)
+                    {
+                        display.gameObject.AddComponent<ItemDisplayQualityHelper>();
+                        addedCount++;
+                    }
+                }
+
+                if (addedCount > 0)
+                {
+                    Debug.Log($"[FancyItems] 新增 {addedCount} 个ItemDisplay Helper");
+                }
+            }
+        }
+
+        // 清理所有Helper
+        private void CleanupAllHelpers()
+        {
+            ItemDisplayQualityHelper[] helpers = FindObjectsOfType<ItemDisplayQualityHelper>();
+
+            foreach (var helper in helpers)
+            {
+                if (helper != null)
+                {
+                    Destroy(helper);
+                }
+            }
+
+            if (helpers.Length > 0)
+            {
+                Debug.Log($"[FancyItems] 清理了 {helpers.Length} 个Helper");
+            }
+        }
+    }
+}
