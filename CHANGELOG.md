@@ -5,6 +5,55 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.3.0] - 2025-10-17
+
+### 新增 ✨
+
+- **物品检索音效系统**：搜索物品时根据品质播放不同的音效
+  - 集成 FMOD Unity 音频系统，使用游戏内置音效
+  - 品质越高，音效越响亮，提供更强的反馈感
+  - 智能防重复播放机制，避免音效重叠
+
+### 音效映射 🎵
+
+| 品质等级 | 音效 | 音量 | 说明 |
+|---------|------|------|------|
+| Quality 1 | `UI/click` | 100% | 普通物品 - 简单点击 |
+| Quality 2 | `UI/click` | 500% | 绿色物品 - 增强点击 |
+| Quality 3 | `UI/confirm` | 300% | 蓝色物品 - 确认音效 |
+| Quality 4 | `UI/game_start` | 300% | 紫色物品 - 游戏开始 |
+| Quality 5 | `UI/level_up` | 200% | 橙色物品 - 升级音效 |
+| Quality 6+ | `UI/level_up` | 800% | 红色物品 - 超级升级 |
+
+### 修复 🐛
+
+- 修复打开背包时已检索物品错误播放音效的问题
+  - 问题原因：ItemDisplay组件初始化时 `lastInspected` 为 false，而背包物品已是 Inspected 状态
+  - 解决方案：物品切换时同步 `lastInspected` 为物品的实际状态
+
+### 技术细节 🔧
+
+- 新增依赖：`FMODUnity.dll` (游戏音频系统)
+- 新增 using：`Duckov.Utilities`
+- 实现方法：
+  - 使用 `FMODUnity.RuntimeManager.CreateInstance()` 创建音效实例
+  - 通过 `EventInstance.setVolume()` 精确控制音量
+  - 使用 `EventInstance.start()` 和 `release()` 管理播放生命周期
+- 音效触发时机：
+  - 监听 `Item.Inspected` 状态从 false → true 的变化
+  - 使用 `soundPlayed` 标记防止重复播放
+  - 物品切换时自动重置播放状态
+- 调试功能：
+  - 添加 `TestSoundEffects()` 协程用于音效测试
+  - 从品质1到6每隔1秒依次播放，便于调试调优
+  - 正式版默认注释，需要时可取消注释
+
+### 性能影响
+
+- **极低性能开销**：音效播放使用 FMOD 引擎的异步系统
+- **无额外轮询**：基于现有的品质检测机制，无新增性能损耗
+- **内存友好**：使用游戏内置音效，不增加额外资源加载
+
 ## [0.2.0] - 2025-10-17
 
 ### 性能优化 🚀
