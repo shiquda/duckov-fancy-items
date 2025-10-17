@@ -1,7 +1,9 @@
 using Duckov.Modding;
 using Duckov.UI;
+using HarmonyLib;
 using ItemStatsSystem;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.UI.ProceduralImage;
@@ -17,6 +19,11 @@ namespace FancyItems
         private Item lastItem;
         private int lastQuality = -1;
         private bool initialized = false;
+
+        // 性能优化:降频更新间隔(秒)
+        private const float UpdateInterval = 0.1f;
+        private float nextUpdateTime = 0f;
+        private bool isDirty = true; // 脏标记:需要更新
 
         private static readonly Color[] QualityColors = new Color[]
         {
@@ -34,16 +41,21 @@ namespace FancyItems
 
         private void OnEnable()
         {
-            // 延迟初始化，确保ItemDisplay组件已准备好
+            // 延迟初始化,确保ItemDisplay组件已准备好
             if (!initialized)
             {
                 StartCoroutine(DelayedInitialize());
+            }
+            else
+            {
+                // 重新激活时标记为脏,需要更新
+                isDirty = true;
             }
         }
 
         private IEnumerator DelayedInitialize()
         {
-            // 等待一帧，确保ItemDisplay完全初始化
+            // 等待一帧,确保ItemDisplay完全初始化
             yield return null;
 
             if (!initialized)
@@ -53,6 +65,7 @@ namespace FancyItems
                 {
                     CreateBackground();
                     initialized = true;
+                    isDirty = true; // 初始化后需要更新
                 }
             }
         }
@@ -69,11 +82,11 @@ namespace FancyItems
             roundedModifier = bgObject.AddComponent<UniformModifier>();
             roundedModifier.Radius = CornerRadius;
 
-            // 添加LayoutElement并设置ignoreLayout，防止LayoutGroup干扰
+            // 添加LayoutElement并设置ignoreLayout,防止LayoutGroup干扰
             LayoutElement layoutElement = bgObject.AddComponent<LayoutElement>();
             layoutElement.ignoreLayout = true;
 
-            // 设置为当前ItemDisplay的子对象（使用false保留本地坐标）
+            // 设置为当前ItemDisplay的子对象(使用false保留本地坐标)
             bgObject.transform.SetParent(transform, false);
 
             // 获取RectTransform并完全重置
@@ -93,12 +106,12 @@ namespace FancyItems
             rect.anchoredPosition = Vector2.zero;
             rect.sizeDelta = Vector2.zero;
 
-            // 将背景移到最底层（最先渲染）
+            // 将背景移到最底层(最先渲染)
             bgObject.transform.SetAsFirstSibling();
 
             background.color = Color.clear;
 
-            // 禁用raycast，避免阻挡点击事件
+            // 禁用raycast,避免阻挡点击事件
             background.raycastTarget = false;
         }
 
@@ -108,6 +121,16 @@ namespace FancyItems
             {
                 return;
             }
+
+            // 性能优化:降频检查 - 只在时间间隔到达或有脏标记时才检查
+            float currentTime = Time.time;
+            if (!isDirty && currentTime < nextUpdateTime)
+            {
+                return;
+            }
+
+            nextUpdateTime = currentTime + UpdateInterval;
+            isDirty = false;
 
             // 获取当前物品
             Item currentItem = itemDisplay.Target;
@@ -128,7 +151,7 @@ namespace FancyItems
                 return;
             }
 
-            // 检查物品是否已被检查（搜索完成）
+            // 检查物品是否已被检查(搜索完成)
             if (!currentItem.Inspected)
             {
                 // 未检查的物品不显示品质背景
@@ -170,35 +193,84 @@ namespace FancyItems
                 Destroy(background.gameObject);
             }
         }
+
+        // 性能优化:提供外部方法标记为脏,强制更新
+        public void MarkDirty()
+        {
+            isDirty = true;
+        }
     }
 
-    // 主Mod类:自动为所有ItemDisplay添加Helper
+    // Harmony Patch: Hook ItemDisplay.OnEnable 自动添加Helper
+    [HarmonyPatch(typeof(ItemDisplay), "OnEnable")]
+    public static class ItemDisplayOnEnablePatch
+    {
+        static void Postfix(ItemDisplay __instance)
+        {
+            // 在ItemDisplay启用时自动添加Helper组件(如果没有的话)
+            if (__instance != null &&
+                __instance.gameObject != null &&
+                __instance.GetComponent<ItemDisplayQualityHelper>() == null)
+            {
+                __instance.gameObject.AddComponent<ItemDisplayQualityHelper>();
+                // Debug.Log($"[FancyItems] Auto-added Helper to {__instance.gameObject.name} via Harmony Hook");
+            }
+        }
+    }
+
+    // 主Mod类:使用Harmony自动Hook ItemDisplay创建
     public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
+        private Harmony? harmony;
+        private const string HarmonyId = "com.fancyitems.mod";
+
         private void OnEnable()
         {
-            Debug.Log("[FancyItems] Mod已启用 - 圆角背景模式 (Radius: 10px)");
+            Debug.Log("[FancyItems] Mod已启用 - Harmony Hook版本 (零轮询)");
 
-            // 立即处理现有的ItemDisplay
+            // 初始化Harmony并应用所有Patch
+            try
+            {
+                harmony = new Harmony(HarmonyId);
+                harmony.PatchAll(); // 自动应用所有标记了[HarmonyPatch]的类
+                Debug.Log("[FancyItems] Harmony patches applied successfully");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[FancyItems] Failed to apply Harmony patches: {e}");
+            }
+
+            // 处理现有的ItemDisplay(Harmony只能Hook新创建的)
             StartCoroutine(ProcessExistingDisplays());
-
-            // 启动高频监控协程（每0.2秒检查一次新增）
-            StartCoroutine(MonitorNewDisplaysCoroutine());
         }
 
         private void OnDisable()
         {
             Debug.Log("[FancyItems] Mod已禁用");
+
+            // 移除所有Harmony Patch
+            if (harmony != null)
+            {
+                harmony.UnpatchAll(HarmonyId);
+                Debug.Log("[FancyItems] Harmony patches removed");
+            }
+
             StopAllCoroutines();
             CleanupAllHelpers();
         }
 
         private void OnDestroy()
         {
+            // 移除所有Harmony Patch
+            if (harmony != null)
+            {
+                harmony.UnpatchAll(HarmonyId);
+            }
+
             CleanupAllHelpers();
         }
 
-        // 处理现有的ItemDisplay
+        // 处理现有的ItemDisplay(只在启动时执行一次)
         private IEnumerator ProcessExistingDisplays()
         {
             yield return new WaitForSeconds(0.1f);
@@ -214,43 +286,16 @@ namespace FancyItems
                     display.gameObject.AddComponent<ItemDisplayQualityHelper>();
                     processed++;
 
-                    // 每处理5个等一帧
-                    if (processed % 5 == 0)
+                    // 每处理10个等一帧
+                    if (processed % 10 == 0)
                     {
                         yield return null;
                     }
                 }
             }
 
-            Debug.Log($"[FancyItems] 已为 {processed} 个ItemDisplay添加Helper");
-        }
-
-        // 高频监控新增的ItemDisplay
-        private IEnumerator MonitorNewDisplaysCoroutine()
-        {
-            while (true)
-            {
-                yield return new WaitForSeconds(0.2f); // 每0.2秒检查一次
-
-                ItemDisplay[] displays = FindObjectsOfType<ItemDisplay>();
-                int addedCount = 0;
-
-                foreach (ItemDisplay display in displays)
-                {
-                    if (display != null &&
-                        display.gameObject.activeInHierarchy &&
-                        display.GetComponent<ItemDisplayQualityHelper>() == null)
-                    {
-                        display.gameObject.AddComponent<ItemDisplayQualityHelper>();
-                        addedCount++;
-                    }
-                }
-
-                if (addedCount > 0)
-                {
-                    Debug.Log($"[FancyItems] 新增 {addedCount} 个ItemDisplay Helper");
-                }
-            }
+            Debug.Log($"[FancyItems] 已为 {processed} 个现有ItemDisplay添加Helper");
+            Debug.Log($"[FancyItems] 后续新增的ItemDisplay将通过Harmony Hook自动处理");
         }
 
         // 清理所有Helper

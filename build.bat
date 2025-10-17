@@ -34,6 +34,21 @@ echo 📋 复制文件到发布目录...
 copy "bin\Release\netstandard2.1\fancy-items.dll" "..\Release\FancyItems\FancyItems.dll" >nul
 echo   ✓ FancyItems.dll
 
+:: 复制 Harmony 依赖 DLL
+set HARMONY_DLL=bin\Release\netstandard2.1\0Harmony.dll
+set NUGET_HARMONY=%USERPROFILE%\.nuget\packages\lib.harmony\2.3.3\lib\net48\0Harmony.dll
+
+if exist "%HARMONY_DLL%" (
+    copy "%HARMONY_DLL%" "..\Release\FancyItems\" >nul
+    echo   ✓ 0Harmony.dll
+) else if exist "%NUGET_HARMONY%" (
+    copy "%NUGET_HARMONY%" "..\Release\FancyItems\" >nul
+    echo   ✓ 0Harmony.dll (from NuGet cache - net48)
+) else (
+    echo   ⚠️  0Harmony.dll 未找到！Mod可能无法正常工作
+    echo   请检查: %NUGET_HARMONY%
+)
+
 :: 复制配置文件
 copy "info.ini" "..\Release\FancyItems\" >nul
 echo   ✓ info.ini
