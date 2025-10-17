@@ -11,6 +11,7 @@
     <Reference Include="$(DuckovPath)Duckov_Data\Managed\TeamSoda.*" />
     <Reference Include="$(DuckovPath)Duckov_Data\Managed\ItemStatsSystem.dll" />
     <Reference Include="$(DuckovPath)Duckov_Data\Managed\Plugins.dll" />
+    <Reference Include="$(DuckovPath)Duckov_Data\Managed\FMODUnity.dll" />
     <Reference Include="$(DuckovPath)Duckov_Data\Managed\Unity*" />
   </ItemGroup>
 

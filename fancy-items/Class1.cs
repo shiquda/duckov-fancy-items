@@ -1,5 +1,6 @@
 using Duckov.Modding;
 using Duckov.UI;
+using Duckov.Utilities;
 using HarmonyLib;
 using ItemStatsSystem;
 using System.Collections;
@@ -18,7 +19,9 @@ namespace FancyItems
         private UniformModifier roundedModifier;
         private Item lastItem;
         private int lastQuality = -1;
+        private bool lastInspected = false;
         private bool initialized = false;
+        private bool soundPlayed = false; // Track if sound was played for current item
 
         // 性能优化:降频更新间隔(秒)
         private const float UpdateInterval = 0.1f;
@@ -140,6 +143,9 @@ namespace FancyItems
             {
                 lastItem = currentItem;
                 lastQuality = -1;
+                // 初始化为当前物品的实际状态，避免在打开背包时触发音效
+                lastInspected = (currentItem != null) ? currentItem.Inspected : false;
+                soundPlayed = false;
             }
 
             if (currentItem == null)
@@ -150,6 +156,15 @@ namespace FancyItems
                 }
                 return;
             }
+
+            // Monitor inspection state and play sound when item is inspected
+            if (currentItem.Inspected && !lastInspected && !soundPlayed)
+            {
+                soundPlayed = true;
+                PlayInspectionSound(currentItem.Quality);
+                Debug.Log($"[FancyItems] Item inspected: {currentItem.DisplayName}, Quality: {currentItem.Quality}");
+            }
+            lastInspected = currentItem.Inspected;
 
             // 检查物品是否已被检查(搜索完成)
             if (!currentItem.Inspected)
@@ -184,6 +199,62 @@ namespace FancyItems
             background.gameObject.SetActive(true);
             int colorIndex = Mathf.Min(quality, QualityColors.Length - 1);
             background.color = QualityColors[colorIndex];
+        }
+
+        private void PlayInspectionSound(int quality)
+        {
+            // Map quality levels to game built-in FMOD sounds
+            string soundName;
+            float volume; // 音量：0.0 (静音) ~ 1.0 (原音量) ~ 更高值（放大）
+            if (quality == 1)
+            {
+                soundName = "event:/UI/click";
+                volume = 1.0f;
+            }
+            else if (quality == 2)
+            {
+                soundName = "event:/UI/click";
+                volume = 5.0f;
+            }
+            else if (quality == 3)
+            {
+                soundName = "event:/UI/confirm";
+                volume = 3.0f;
+            }
+            else if (quality == 4)
+            {
+                soundName = "event:/UI/game_start";
+                volume = 3.0f;
+            }
+            else if (quality == 5)
+            {
+                soundName = "event:/UI/level_up";
+                volume = 2.0f;
+            }
+            else
+            {
+                soundName = "event:/UI/level_up";
+                volume = 8.0f;
+            }
+
+            try
+            {
+                // 创建音效实例以便控制音量
+                FMOD.Studio.EventInstance eventInstance = FMODUnity.RuntimeManager.CreateInstance(soundName);
+
+                // 设置音量
+                eventInstance.setVolume(volume);
+
+                // 播放并释放
+                eventInstance.start();
+                eventInstance.release();
+
+                Debug.Log($"[FancyItems] Playing sound: {soundName} for quality {quality} at volume {volume}");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[FancyItems] Failed to play sound {soundName}: {e.Message}");
+            }
         }
 
         private void OnDestroy()
@@ -240,6 +311,9 @@ namespace FancyItems
                 Debug.LogError($"[FancyItems] Failed to apply Harmony patches: {e}");
             }
 
+            // 启动音效测试（调试用，正式版可注释掉）
+            // StartCoroutine(TestSoundEffects());
+
             // 处理现有的ItemDisplay(Harmony只能Hook新创建的)
             StartCoroutine(ProcessExistingDisplays());
         }
@@ -268,6 +342,73 @@ namespace FancyItems
             }
 
             CleanupAllHelpers();
+        }
+
+        // 测试音效：从品质1到6每隔1秒播放一次
+        private IEnumerator TestSoundEffects()
+        {
+            Debug.Log("[FancyItems] 🎵 开始音效测试...");
+            yield return new WaitForSeconds(1f);
+
+            for (int quality = 1; quality <= 6; quality++)
+            {
+                Debug.Log($"[FancyItems] 🎵 测试品质 {quality} 音效");
+                TestPlaySound(quality);
+                yield return new WaitForSeconds(1f);
+            }
+
+            Debug.Log("[FancyItems] 🎵 音效测试完成！");
+        }
+
+        // 测试播放音效的静态方法
+        private void TestPlaySound(int quality)
+        {
+            string soundName;
+            float volume;
+
+            if (quality == 1)
+            {
+                soundName = "event:/UI/click";
+                volume = 1.0f;
+            }
+            else if (quality == 2)
+            {
+                soundName = "event:/UI/click";
+                volume = 5.0f;
+            }
+            else if (quality == 3)
+            {
+                soundName = "event:/UI/confirm";
+                volume = 3.0f;
+            }
+            else if (quality == 4)
+            {
+                soundName = "event:/UI/game_start";
+                volume = 3.0f;
+            }
+            else if (quality == 5)
+            {
+                soundName = "event:/UI/level_up";
+                volume = 2.0f;
+            }
+            else
+            {
+                soundName = "event:/UI/level_up";
+                volume = 8.0f;
+            }
+
+            try
+            {
+                FMOD.Studio.EventInstance eventInstance = FMODUnity.RuntimeManager.CreateInstance(soundName);
+                eventInstance.setVolume(volume);
+                eventInstance.start();
+                eventInstance.release();
+                Debug.Log($"[FancyItems] 🔊 播放品质 {quality}: {soundName} (音量: {volume * 100}%)");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[FancyItems] ❌ 播放失败: {soundName} - {e.Message}");
+            }
         }
 
         // 处理现有的ItemDisplay(只在启动时执行一次)
