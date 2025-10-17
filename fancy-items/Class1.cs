@@ -4,14 +4,16 @@ using ItemStatsSystem;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.UI.ProceduralImage;
 
 namespace FancyItems
 {
-    // Helper组件：实时监控ItemDisplay变化并更新背景
+    // Helper组件:实时监控ItemDisplay变化并更新背景
     public class ItemDisplayQualityHelper : MonoBehaviour
     {
         private ItemDisplay itemDisplay;
-        private Image background;
+        private ProceduralImage background;
+        private UniformModifier roundedModifier;
         private Item lastItem;
         private int lastQuality = -1;
         private bool initialized = false;
@@ -20,12 +22,15 @@ namespace FancyItems
         {
             new Color(0f, 0f, 0f, 0f),              // Quality 0: 透明
             new Color(0f, 0f, 0f, 0f),              // Quality 1: 透明（普通物品不显示）
-            new Color(0.6f, 0.9f, 0.6f, 0.10f),     // Quality 2: 柔和浅绿
-            new Color(0.6f, 0.8f, 1.0f, 0.14f),     // Quality 3: 天蓝浅色
-            new Color(1.0f, 0.65f, 1.0f, 0.35f),   // Quality 4: 亮浅紫（提亮，略粉）
+            new Color(0.6f, 0.9f, 0.6f, 0.24f),     // Quality 2: 柔和浅绿
+            new Color(0.6f, 0.8f, 1.0f, 0.30f),     // Quality 3: 天蓝浅色
+            new Color(1.0f, 0.50f, 1.0f, 0.40f),   // Quality 4: 亮浅紫（提亮，略粉）
             new Color(1.0f, 0.75f, 0.2f, 0.60f),   // Quality 5: 柔亮橙（更偏橙、更暖）
             new Color(1.0f, 0.3f, 0.3f, 0.4f),     // Quality 6+: 明亮红（亮度提升、透明度降低）
         };
+
+        // 圆角半径(像素) - 匹配游戏原生UI
+        private const float CornerRadius = 15f;
 
         private void OnEnable()
         {
@@ -58,7 +63,11 @@ namespace FancyItems
 
             // 创建背景GameObject
             GameObject bgObject = new GameObject("FancyItems_Background");
-            background = bgObject.AddComponent<Image>();
+            background = bgObject.AddComponent<ProceduralImage>();
+
+            // 添加UniformModifier用于圆角
+            roundedModifier = bgObject.AddComponent<UniformModifier>();
+            roundedModifier.Radius = CornerRadius;
 
             // 添加LayoutElement并设置ignoreLayout，防止LayoutGroup干扰
             LayoutElement layoutElement = bgObject.AddComponent<LayoutElement>();
@@ -137,8 +146,6 @@ namespace FancyItems
                 lastQuality = quality;
                 UpdateBackgroundColor(quality);
             }
-
-            // 移除了SetAsFirstSibling调用，避免在LayoutGroup环境下产生位置偏移
         }
 
         private void UpdateBackgroundColor(int quality)
@@ -165,12 +172,12 @@ namespace FancyItems
         }
     }
 
-    // 主Mod类：自动为所有ItemDisplay添加Helper
+    // 主Mod类:自动为所有ItemDisplay添加Helper
     public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
         private void OnEnable()
         {
-            Debug.Log("[FancyItems] Mod已启用 - 实时监控模式");
+            Debug.Log("[FancyItems] Mod已启用 - 圆角背景模式 (Radius: 10px)");
 
             // 立即处理现有的ItemDisplay
             StartCoroutine(ProcessExistingDisplays());
