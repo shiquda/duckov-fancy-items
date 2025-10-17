@@ -18,13 +18,13 @@ namespace FancyItems
 
         private static readonly Color[] QualityColors = new Color[]
         {
-            new Color(0f, 0f, 0f, 0f),           // Quality 0: 透明
-            new Color(0f, 0f, 0f, 0f),           // Quality 1: 透明（普通物品不显示）
-            new Color(0.2f, 0.8f, 0.2f, 0.25f),  // Quality 2: 绿色
-            new Color(0.2f, 0.4f, 1f, 0.3f),     // Quality 3: 蓝色
-            new Color(0.7f, 0.2f, 1f, 0.35f),    // Quality 4: 紫色
-            new Color(1f, 0.5f, 0f, 0.4f),       // Quality 5: 橙色
-            new Color(1f, 0.15f, 0.15f, 0.45f),  // Quality 6+: 红色
+            new Color(0f, 0f, 0f, 0f),              // Quality 0: 透明
+            new Color(0f, 0f, 0f, 0f),              // Quality 1: 透明（普通物品不显示）
+            new Color(0.6f, 0.9f, 0.6f, 0.10f),     // Quality 2: 柔和浅绿
+            new Color(0.6f, 0.8f, 1.0f, 0.14f),     // Quality 3: 天蓝浅色
+            new Color(1.0f, 0.65f, 1.0f, 0.35f),   // Quality 4: 亮浅紫（提亮，略粉）
+            new Color(1.0f, 0.75f, 0.2f, 0.60f),   // Quality 5: 柔亮橙（更偏橙、更暖）
+            new Color(1.0f, 0.3f, 0.3f, 0.4f),     // Quality 6+: 明亮红（亮度提升、透明度降低）
         };
 
         private void OnEnable()
