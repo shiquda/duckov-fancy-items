@@ -5,6 +5,28 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.1.2] - 2025-10-17
+
+### 新增
+
+- ✨ **圆角背景支持**：品质背景现在使用圆角矩形，与游戏原生UI风格一致
+  - 使用 `ProceduralImage` 替代普通 `Image` 组件
+  - 添加 `UniformModifier` 实现15像素圆角效果
+  - 完美匹配游戏内物品框的视觉风格
+
+### 优化
+
+- 🎨 调整品质颜色透明度，提升视觉效果：
+  - Quality 2 (绿色): 透明度从 0.10 提升至 0.24
+  - Quality 3 (蓝色): 透明度从 0.14 提升至 0.30
+  - Quality 4 (紫色): 色调调整，透明度提升至 0.40
+
+### 技术细节
+
+- 添加 `Plugins.dll` 引用以访问 `ProceduralImage` 组件
+- 圆角半径设置为15像素，经测试与游戏UI完美匹配
+- 背景渲染使用专用shader：`UI/Procedural UI Image`
+
 ## [0.1.1] - 2025-10-17
 
 ### 修复
