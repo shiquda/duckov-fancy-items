@@ -291,6 +291,114 @@ namespace FancyItems
         }
     }
 
+    // 搜索时间优化器
+    public class FancySearchTimeOptimizer
+    {
+        // 优化后的搜索时间配置（秒）- 只优化低级物品
+        private static readonly float[] OptimizedInspectingTimes = new float[]
+        {
+            0.8f,  // Quality 0: 垃圾物品 - 优化为0.8秒
+            0.8f,  // Quality 1: 普通物品 - 优化为0.8秒
+            0.9f,  // Quality 2: 优良物品 - 优化为1.2秒
+            -1f,   // Quality 3: 精良物品 - 保持原时间
+            -1f,   // Quality 4: 史诗物品 - 保持原时间
+            -1f,   // Quality 5: 传说物品 - 保持原时间
+            -1f,   // Quality 6+: 神话物品 - 保持原时间
+        };
+
+        // 获取优化后的搜索时间
+        public static float GetOptimizedInspectingTime(Item item)
+        {
+            if (item == null) return 1f;
+
+            int quality = item.Quality;
+            if (quality < 0) quality = 0;
+            if (quality >= OptimizedInspectingTimes.Length)
+                quality = OptimizedInspectingTimes.Length - 1;
+
+            float optimizedTime = OptimizedInspectingTimes[quality];
+
+            // 如果值为-1，表示保持原始时间，返回原始时间（在Postfix中已经获取）
+            if (optimizedTime < 0)
+            {
+                // 这里返回-1，Postfix会处理
+                return -1f;
+            }
+
+            return optimizedTime;
+        }
+    }
+
+    // Harmony Patch: 优化搜索时间计算 - 先调用原始方法获取时间
+    [HarmonyPatch(typeof(GameplayDataSettings.LootingData), "MGetInspectingTime")]
+    public static class LootingDataGetInspectingTimePatch
+    {
+        static void Postfix(Item item, ref float __result)
+        {
+            // 在原始方法执行后，获取原始结果
+            float originalTime = __result;
+
+            // 使用我们的优化时间计算
+            float optimizedTime = FancySearchTimeOptimizer.GetOptimizedInspectingTime(item);
+
+            // 如果返回-1，表示保持原始时间，不需要做任何修改
+            if (optimizedTime < 0)
+            {
+                // __result已经是原始时间，保持不变
+                return;
+            }
+
+            // 记录对比信息并应用优化 - 只记录被优化的品质(0、1、2)
+            if (item != null && item.Quality <= 2)
+            {
+                string itemName = item.DisplayName ?? "Unknown";
+                float reductionPercent = (originalTime > 0) ?
+                    ((originalTime - optimizedTime) / originalTime * 100f) : 0f;
+
+                Debug.Log($"[FancyItems] 时间优化: {itemName} (品质{item.Quality}) " +
+                         $"{originalTime:F1}s → {optimizedTime:F1}s " +
+                         $"(减少{reductionPercent:F0}%)");
+            }
+
+            // 只有被优化的物品才应用新时间
+            __result = optimizedTime;
+        }
+    }
+
+    // Harmony Patch: 优化静态方法调用
+    [HarmonyPatch(typeof(GameplayDataSettings.LootingData), "GetInspectingTime")]
+    public static class LootingDataStaticGetInspectingTimePatch
+    {
+        static void Postfix(Item item, ref float __result)
+        {
+            // 使用我们的优化时间计算
+            float optimizedTime = FancySearchTimeOptimizer.GetOptimizedInspectingTime(item);
+
+            // 如果返回-1，表示保持原始时间，不需要修改
+            if (optimizedTime < 0)
+            {
+                return; // 保持原始时间
+            }
+
+            // 记录对比信息并应用优化 - 只记录被优化的品质(0、1、2)
+            if (item != null && item.Quality <= 2)
+            {
+                // 获取原始时间（已经在__result中）
+                float originalTime = __result;
+                string itemName = item.DisplayName ?? "Unknown";
+                float reductionPercent = (originalTime > 0) ?
+                    ((originalTime - optimizedTime) / originalTime * 100f) : 0f;
+
+                Debug.Log($"[FancyItems] 时间优化(静态): {itemName} (品质{item.Quality}) " +
+                         $"{originalTime:F1}s → {optimizedTime:F1}s " +
+                         $"(减少{reductionPercent:F0}%)");
+            }
+
+            // 应用优化时间
+            __result = optimizedTime;
+        }
+    }
+
     // 主Mod类:使用Harmony自动Hook ItemDisplay创建
     public class ModBehaviour : Duckov.Modding.ModBehaviour
     {
@@ -299,7 +407,7 @@ namespace FancyItems
 
         private void OnEnable()
         {
-            Debug.Log("[FancyItems] Mod已启用 - Harmony Hook版本 (零轮询)");
+            Debug.Log("[FancyItems] Mod已启用 - Harmony Hook版本 (零轮询 + 搜索时间优化)");
 
             // 初始化Harmony并应用所有Patch
             try
@@ -307,6 +415,9 @@ namespace FancyItems
                 harmony = new Harmony(HarmonyId);
                 harmony.PatchAll(); // 自动应用所有标记了[HarmonyPatch]的类
                 Debug.Log("[FancyItems] Harmony patches applied successfully");
+
+                // 显示搜索时间优化信息
+                LogSearchTimeOptimizations();
             }
             catch (System.Exception e)
             {
@@ -458,6 +569,17 @@ namespace FancyItems
             {
                 Debug.Log($"[FancyItems] 清理了 {helpers.Length} 个Helper");
             }
+        }
+
+        // 记录搜索时间优化信息
+        private void LogSearchTimeOptimizations()
+        {
+            Debug.Log("[FancyItems] 🚀 搜索时间优化已启用！");
+            Debug.Log("[FancyItems] 📋 优化详情:");
+            Debug.Log("[FancyItems]   品质0-1 (垃圾/普通): 0.8秒 ⚡");
+            Debug.Log("[FancyItems]   品质2 (优良): 1.2秒 ⚡");
+            Debug.Log("[FancyItems]   品质3+ (精良+): 保持原时间");
+            Debug.Log("[FancyItems] 🎯 预期效果: 早期物品检查略微加速");
         }
     }
 }
