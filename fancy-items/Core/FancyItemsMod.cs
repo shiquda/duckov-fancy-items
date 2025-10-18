@@ -1,6 +1,7 @@
 using Duckov.Modding;
 using Duckov.UI;
 using Duckov.Utilities;
+using FancyItems.Systems.UI;
 using HarmonyLib;
 using ItemStatsSystem;
 using System.Collections;
@@ -18,10 +19,11 @@ namespace FancyItems.Core
     {
         private bool initialized = false;
         private Harmony harmony;
+        private SettingsUIManager settingsUIManager;
 
         private void OnEnable()
         {
-            Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} Mod已启用 - 模块化架构版本");
+            Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} Mod已启用 - 带设置界面版本");
             if (!initialized)
             {
                 StartCoroutine(InitializeMod());
@@ -32,8 +34,21 @@ namespace FancyItems.Core
         {
             if (initialized) yield break;
 
-            // 初始化配置
+            // 加载配置
+            ConfigManager.LoadConfig();
+            yield return null;
+
+            // 应用配置
             ModConfiguration.ApplyConfiguration();
+            yield return null;
+
+            // 创建设置 UI 管理器
+            settingsUIManager = gameObject.AddComponent<SettingsUIManager>();
+            Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 设置界面管理器已创建");
+            yield return null;
+
+            // 订阅配置变更事件
+            ConfigManager.OnConfigChanged += OnConfigChanged;
             yield return null;
 
             // 初始化Harmony
@@ -51,6 +66,34 @@ namespace FancyItems.Core
             Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 初始化完成！");
         }
 
+        private void Update()
+        {
+            // 检查快捷键 F7 切换设置界面显示/隐藏
+            if (Input.GetKeyDown(KeyCode.F7))
+            {
+                if (settingsUIManager != null)
+                {
+                    // 检查当前是否显示
+                    bool isCurrentlyVisible = settingsUIManager.IsVisible();
+
+                    if (isCurrentlyVisible)
+                    {
+                        settingsUIManager.HideSettings();
+                        Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 设置界面已关闭");
+                    }
+                    else
+                    {
+                        settingsUIManager.ShowSettings();
+                        Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 设置界面已打开");
+                    }
+                }
+                else
+                {
+                    Debug.LogWarning($"{Constants.FancyItemsConstants.LogPrefix} 设置界面管理器未初始化");
+                }
+            }
+        }
+
         private void OnDisable()
         {
             Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} Mod已禁用");
@@ -65,15 +108,32 @@ namespace FancyItems.Core
         public void CleanupMod()
         {
             StopAllCoroutines();
+
+            // 取消订阅配置变更事件
+            ConfigManager.OnConfigChanged -= OnConfigChanged;
+
+            // 保存配置
+            ConfigManager.SaveConfig();
+
             if (harmony != null)
             {
                 harmony.UnpatchAll(Constants.FancyItemsConstants.HarmonyId);
             }
+
             int cleaned = Patches.ItemDisplayPatches.CleanupAllQualityVisualizers();
             if (cleaned > 0)
             {
                 Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 清理了 {cleaned} 个品质可视化组件");
             }
+        }
+
+        /// <summary>
+        /// 配置变更事件处理
+        /// </summary>
+        private void OnConfigChanged(FancyItemsConfig config)
+        {
+            Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 配置已更新");
+            ModConfiguration.ApplyConfiguration();
         }
     }
 }

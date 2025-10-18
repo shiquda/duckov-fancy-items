@@ -21,28 +21,55 @@ namespace FancyItems.Patches
         {
             static void Postfix(ItemDisplay __instance)
             {
-                if (!Core.ModConfiguration.EnableQualityVisuals) return;
-
-                if (__instance != null && __instance.gameObject != null &&
-                    __instance.GetComponent<Systems.UI.ItemQualityVisualizer>() == null)
+                // 添加视觉效果组件
+                if (Core.ModConfiguration.EnableQualityVisuals)
                 {
-                    __instance.gameObject.AddComponent<Systems.UI.ItemQualityVisualizer>();
+                    if (__instance != null && __instance.gameObject != null &&
+                        __instance.GetComponent<Systems.UI.ItemQualityVisualizer>() == null)
+                    {
+                        __instance.gameObject.AddComponent<Systems.UI.ItemQualityVisualizer>();
+                    }
+                }
+
+                // 添加独立的音效触发器组件
+                if (Core.ModConfiguration.EnableSoundEffects)
+                {
+                    if (__instance != null && __instance.gameObject != null &&
+                        __instance.GetComponent<Systems.Audio.ItemSoundTrigger>() == null)
+                    {
+                        __instance.gameObject.AddComponent<Systems.Audio.ItemSoundTrigger>();
+                    }
                 }
             }
         }
 
         public static int ProcessExistingItemDisplays()
         {
-            if (!Core.ModConfiguration.EnableQualityVisuals) return 0;
-
             ItemDisplay[] displays = Object.FindObjectsOfType<ItemDisplay>();
             int processed = 0;
+
             foreach (ItemDisplay display in displays)
             {
-                if (display != null && display.GetComponent<Systems.UI.ItemQualityVisualizer>() == null)
+                if (display == null) continue;
+
+                // 添加视觉效果组件
+                if (Core.ModConfiguration.EnableQualityVisuals)
                 {
-                    display.gameObject.AddComponent<Systems.UI.ItemQualityVisualizer>();
-                    processed++;
+                    if (display.GetComponent<Systems.UI.ItemQualityVisualizer>() == null)
+                    {
+                        display.gameObject.AddComponent<Systems.UI.ItemQualityVisualizer>();
+                        processed++;
+                    }
+                }
+
+                // 添加独立的音效触发器组件
+                if (Core.ModConfiguration.EnableSoundEffects)
+                {
+                    if (display.GetComponent<Systems.Audio.ItemSoundTrigger>() == null)
+                    {
+                        display.gameObject.AddComponent<Systems.Audio.ItemSoundTrigger>();
+                        processed++;
+                    }
                 }
             }
             return processed;
@@ -50,12 +77,25 @@ namespace FancyItems.Patches
 
         public static int CleanupAllQualityVisualizers()
         {
+            int cleanedCount = 0;
+
+            // 清理视觉效果组件
             Systems.UI.ItemQualityVisualizer[] visualizers = Object.FindObjectsOfType<Systems.UI.ItemQualityVisualizer>();
             foreach (var visualizer in visualizers)
             {
                 if (visualizer != null) Object.Destroy(visualizer);
+                cleanedCount++;
             }
-            return visualizers.Length;
+
+            // 清理音效触发器组件
+            Systems.Audio.ItemSoundTrigger[] soundTriggers = Object.FindObjectsOfType<Systems.Audio.ItemSoundTrigger>();
+            foreach (var soundTrigger in soundTriggers)
+            {
+                if (soundTrigger != null) Object.Destroy(soundTrigger);
+                cleanedCount++;
+            }
+
+            return cleanedCount;
         }
     }
 
@@ -97,41 +137,6 @@ namespace FancyItems.Patches
                 }
 
                 // 只有被优化的物品才应用新时间
-                __result = optimizedTime;
-            }
-        }
-
-        [HarmonyPatch(typeof(GameplayDataSettings.LootingData), "GetInspectingTime")]
-        public static class LootingDataStaticGetInspectingTimePatch
-        {
-            static void Postfix(Item item, ref float __result)
-            {
-                if (!Core.ModConfiguration.EnableSearchOptimization) return;
-
-                // 使用我们的优化时间计算
-                float optimizedTime = Systems.Optimization.SearchTimeOptimizer.GetOptimizedInspectingTime(item);
-
-                // 如果返回-1，表示保持原始时间，不需要修改
-                if (optimizedTime < 0)
-                {
-                    return; // 保持原始时间
-                }
-
-                // 记录对比信息并应用优化 - 只记录被优化的品质(0、1、2)
-                if (item != null && item.Quality <= 2)
-                {
-                    // 获取原始时间（已经在__result中）
-                    float originalTime = __result;
-                    string itemName = item.DisplayName ?? "Unknown";
-                    float reductionPercent = (originalTime > 0) ?
-                        ((originalTime - optimizedTime) / originalTime * 100f) : 0f;
-
-                    Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 时间优化(静态): {itemName} (品质{item.Quality}) " +
-                             $"{originalTime:F1}s → {optimizedTime:F1}s " +
-                             $"(减少{reductionPercent:F0}%)");
-                }
-
-                // 应用优化时间
                 __result = optimizedTime;
             }
         }

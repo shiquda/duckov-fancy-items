@@ -65,18 +65,12 @@ namespace FancyItems.Systems.Audio
         {
             try
             {
-                // 应用全局音量倍数
-                float adjustedVolume = volume * Core.ModConfiguration.GlobalVolumeMultiplier;
-
                 FMOD.Studio.EventInstance eventInstance = FMODUnity.RuntimeManager.CreateInstance(soundName);
-                eventInstance.setVolume(adjustedVolume);
+                eventInstance.setVolume(volume);
                 eventInstance.start();
                 eventInstance.release();
 
-                if (Core.ModConfiguration.DebugMode)
-                {
-                    Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 🔊 播放品质 {quality}: {soundName} (音量: {adjustedVolume * 100}%)");
-                }
+                Debug.Log($"{Constants.FancyItemsConstants.LogPrefix} 🔊 播放品质 {quality}: {soundName} (音量: {volume * 100}%)");
             }
             catch (System.Exception e)
             {

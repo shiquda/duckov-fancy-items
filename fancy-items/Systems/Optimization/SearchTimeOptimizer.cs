@@ -90,8 +90,6 @@ namespace FancyItems.Systems.Optimization
         /// </summary>
         private static void LogOptimizationInfo(Item item, float originalTime, float optimizedTime)
         {
-            if (!Core.ModConfiguration.DebugMode) return;
-
             string itemName = item.DisplayName ?? "Unknown";
             float reductionPercent = (originalTime > 0) ?
                 ((originalTime - optimizedTime) / originalTime * 100f) : 0f;

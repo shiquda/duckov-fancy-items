@@ -131,7 +131,7 @@ namespace FancyItems.Systems.UI
             if (currentItem.Inspected && !lastInspected && !soundPlayed)
             {
                 soundPlayed = true;
-                // 播放品质音效
+                // 播放品质音效（独立于视觉效果开关）
                 Systems.Audio.QualitySoundManager.PlayQualitySound(currentItem.Quality);
             }
             lastInspected = currentItem.Inspected;
