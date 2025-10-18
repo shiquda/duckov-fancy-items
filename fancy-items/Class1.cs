@@ -166,8 +166,10 @@ namespace FancyItems
             }
             lastInspected = currentItem.Inspected;
 
-            // 检查物品是否已被检查(搜索完成)
-            if (!currentItem.Inspected)
+            // 检查物品是否已被检查(搜索完成) - 商店物品除外
+            // 商店中的物品(IsStockshopSample=true)应该直接显示品质，无需检查
+            bool isShopItem = itemDisplay.IsStockshopSample;
+            if (!currentItem.Inspected && !isShopItem)
             {
                 // 未检查的物品不显示品质背景
                 if (background.gameObject.activeSelf)
