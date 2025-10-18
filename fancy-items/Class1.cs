@@ -216,7 +216,7 @@ namespace FancyItems
             else if (quality == 2)
             {
                 soundName = "event:/UI/click";
-                volume = 5.0f;
+                volume = 3.0f;
             }
             else if (quality == 3)
             {
@@ -225,8 +225,8 @@ namespace FancyItems
             }
             else if (quality == 4)
             {
-                soundName = "event:/UI/game_start";
-                volume = 3.0f;
+                soundName = "event:/UI/ui_skill_up";
+                volume = 1.0f;
             }
             else if (quality == 5)
             {
@@ -376,7 +376,7 @@ namespace FancyItems
             else if (quality == 2)
             {
                 soundName = "event:/UI/click";
-                volume = 5.0f;
+                volume = 3.0f;
             }
             else if (quality == 3)
             {
@@ -385,8 +385,8 @@ namespace FancyItems
             }
             else if (quality == 4)
             {
-                soundName = "event:/UI/game_start";
-                volume = 3.0f;
+                soundName = "event:/UI/ui_skill_up";
+                volume = 1.0f;
             }
             else if (quality == 5)
             {
