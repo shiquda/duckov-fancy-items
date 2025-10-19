@@ -31,6 +31,9 @@ namespace FancyItems.Patches
                     }
                 }
 
+                // 注释掉重复的音效触发器 - 音效功能已整合到 ItemQualityVisualizer 中
+                // 移除 ItemSoundTrigger 以避免音效重复播放
+                /*
                 // 添加独立的音效触发器组件
                 if (Core.ModConfiguration.EnableSoundEffects)
                 {
@@ -40,6 +43,7 @@ namespace FancyItems.Patches
                         __instance.gameObject.AddComponent<Systems.Audio.ItemSoundTrigger>();
                     }
                 }
+                */
             }
         }
 
@@ -62,6 +66,9 @@ namespace FancyItems.Patches
                     }
                 }
 
+                // 注释掉重复的音效触发器 - 音效功能已整合到 ItemQualityVisualizer 中
+                // 移除 ItemSoundTrigger 以避免音效重复播放
+                /*
                 // 添加独立的音效触发器组件
                 if (Core.ModConfiguration.EnableSoundEffects)
                 {
@@ -71,6 +78,7 @@ namespace FancyItems.Patches
                         processed++;
                     }
                 }
+                */
             }
             return processed;
         }
@@ -87,7 +95,7 @@ namespace FancyItems.Patches
                 cleanedCount++;
             }
 
-            // 清理音效触发器组件
+            // 清理音效触发器组件（清理已废弃的组件）
             Systems.Audio.ItemSoundTrigger[] soundTriggers = Object.FindObjectsOfType<Systems.Audio.ItemSoundTrigger>();
             foreach (var soundTrigger in soundTriggers)
             {
