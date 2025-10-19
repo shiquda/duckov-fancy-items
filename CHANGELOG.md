@@ -5,6 +5,21 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.4.1] - 2025-10-19
+
+### 修复 🐛
+
+- **音效重复播放问题**：修复物品检查时音效播放两次的bug
+  - 问题原因：同时存在ItemQualityVisualizer和ItemSoundTrigger两个音效触发器
+  - 解决方案：移除重复的ItemSoundTrigger组件，统一由ItemQualityVisualizer处理音效
+  - 优化：保留清理功能，确保移除所有遗留的ItemSoundTrigger组件
+
+### 技术细节 🔧
+
+- 注释掉ItemDisplayPatches.cs中添加ItemSoundTrigger的代码逻辑
+- 音效播放功能完全整合到ItemQualityVisualizer组件中
+- 维持现有的音效播放逻辑和防重复机制不变
+
 ## [0.4.0] - 2025-10-19
 
 ### 新增 ✨
